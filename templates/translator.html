@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Translator | LinguaBridge{% endblock %}
+{% block content %}
+<section class="hero">
+  <span class="eyebrow">BREAK LANGUAGE BARRIERS</span>
+  <h1>Translate with confidence.</h1>
+  <p>Enter your text, choose languages, and get your translation in seconds.</p>
+</section>
+
+<section class="translator-card">
+  <div class="language-row">
+    <div class="field">
+      <label for="source">Translate from</label>
+      <select id="source">
+        {% for code, name in languages.items() %}
+          <option value="{{ code }}" {% if code == 'en' %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button id="swap" class="swap" type="button" title="Swap languages">⇄</button>
+    <div class="field">
+      <label for="target">Translate to</label>
+      <select id="target">
+        {% for code, name in languages.items() %}
+          <option value="{{ code }}" {% if code == 'hi' %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="text-grid">
+    <div class="text-panel">
+      <div class="panel-heading"><span>Original text</span><span id="count">0 / 5000</span></div>
+      <textarea id="inputText" maxlength="5000" placeholder="Type or paste text here..."></textarea>
+    </div>
+    <div class="text-panel result-panel">
+      <div class="panel-heading"><span>Translation</span><span id="resultLanguage">Hindi</span></div>
+      <div id="outputText" class="output" aria-live="polite">Your translation will appear here.</div>
+      <div class="result-actions">
+        <button id="copy" class="secondary" type="button" disabled>Copy</button>
+        <button id="speak" class="secondary" type="button" disabled>🔊 Listen</button>
+      </div>
+    </div>
+  </div>
+  <div class="translate-row">
+    <span id="status" class="status">Maximum 5,000 characters</span>
+    <button id="translate" class="primary" type="button">Translate text →</button>
+  </div>
+</section>
+
+{% if history %}
+<section class="history">
+  <h2>Recent translations</h2>
+  {% for item in history %}
+  <article class="history-item">
+    <div class="history-langs">{{ languages.get(item.source_language, item.source_language) }} → {{ languages.get(item.target_language, item.target_language) }}</div>
+    <p><strong>Original:</strong> {{ item.original_text[:140] }}{% if item.original_text|length > 140 %}…{% endif %}</p>
+    <p><strong>Translated:</strong> {{ item.translated_text[:140] }}{% if item.translated_text|length > 140 %}…{% endif %}</p>
+    <small>{{ item.created_at }}</small>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const source = document.getElementById("source");
+const target = document.getElementById("target");
+const input = document.getElementById("inputText");
+const output = document.getElementById("outputText");
+const statusText = document.getElementById("status");
+const translateBtn = document.getElementById("translate");
+const copyBtn = document.getElementById("copy");
+const speakBtn = document.getElementById("speak");
+
+input.addEventListener("input", () => {
+  document.getElementById("count").textContent = `${input.value.length} / 5000`;
+});
+target.addEventListener("change", () => {
+  document.getElementById("resultLanguage").textContent = target.options[target.selectedIndex].text;
+});
+document.getElementById("swap").addEventListener("click", () => {
+  const oldSource = source.value;
+  source.value = target.value;
+  target.value = oldSource;
+  document.getElementById("resultLanguage").textContent = target.options[target.selectedIndex].text;
+});
+
+translateBtn.addEventListener("click", async () => {
+  const text = input.value.trim();
+  if (!text) {
+    statusText.textContent = "Please enter text to translate.";
+    return;
+  }
+  if (source.value === target.value) {
+    statusText.textContent = "Choose two different languages.";
+    return;
+  }
+  translateBtn.disabled = true;
+  translateBtn.textContent = "Translating…";
+  statusText.textContent = "Connecting to translation service…";
+  output.textContent = "";
+  copyBtn.disabled = true;
+  speakBtn.disabled = true;
+
+  try {
+    const response = await fetch("{{ url_for('translate') }}", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text, source: source.value, target: target.value})
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.error || "Translation failed.");
+    output.textContent = data.translated_text;
+    statusText.textContent = "Translation completed.";
+    copyBtn.disabled = false;
+    speakBtn.disabled = false;
+  } catch (error) {
+    output.textContent = "Your translation will appear here.";
+    statusText.textContent = error.message;
+  } finally {
+    translateBtn.disabled = false;
+    translateBtn.textContent = "Translate text →";
+  }
+});
+
+copyBtn.addEventListener("click", async () => {
+  const text = output.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    statusText.textContent = "Translation copied to clipboard.";
+  } catch {
+    statusText.textContent = "Clipboard access is unavailable in this browser.";
+  }
+});
+
+speakBtn.addEventListener("click", () => {
+  if (!("speechSynthesis" in window)) {
+    statusText.textContent = "Text-to-speech is not supported in this browser.";
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(output.textContent);
+  utterance.lang = target.value;
+  window.speechSynthesis.speak(utterance);
+});
+</script>
+{% endblock %}

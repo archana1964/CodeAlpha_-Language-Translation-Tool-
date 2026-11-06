@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Register | LinguaBridge{% endblock %}
+{% block content %}
+<section class="auth-card">
+  <div class="globe">✨</div>
+  <h1>Create account</h1>
+  <p class="muted">Register to start using the translation tool.</p>
+  <form method="POST">
+    <label>Username</label>
+    <input name="username" type="text" placeholder="Choose a username" minlength="3" required autocomplete="username">
+    <label>Email address</label>
+    <input name="email" type="email" placeholder="name@example.com" required autocomplete="email">
+    <label>Password</label>
+    <input name="password" type="password" placeholder="At least 8 characters" minlength="8" required autocomplete="new-password">
+    <label>Confirm password</label>
+    <input name="confirm_password" type="password" placeholder="Re-enter password" minlength="8" required autocomplete="new-password">
+    <button class="primary full" type="submit">Create account</button>
+  </form>
+  <p class="switch">Already registered? <a href="{{ url_for('login') }}">Login</a></p>
+</section>
+{% endblock %}
